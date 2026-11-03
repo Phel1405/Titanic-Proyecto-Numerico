@@ -1,0 +1,37 @@
+# ------------------------------------------------------------------------------
+# R & RStudio System Files
+# ------------------------------------------------------------------------------
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+.Renviron
+.Rprofile
+
+# ------------------------------------------------------------------------------
+# Package & Virtual Environment Directories
+# ------------------------------------------------------------------------------
+# renv virtual environment 
+renv/library/
+renv/python/
+renv/staging/
+
+# packrat
+packrat/lib*/
+packrat/src/
+
+# Output reports, logs, and generated figures
+*.html
+*.pdf
+*.log
+mlruns/
+tensorboard/
+
+# ------------------------------------------------------------------------------
+# Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+.env
+config.yml
+secrets/
+*.pem
+*.key

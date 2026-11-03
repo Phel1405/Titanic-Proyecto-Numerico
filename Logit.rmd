@@ -1,0 +1,162 @@
+  ---
+title: "Modelo Logit"
+author: "Yesid Rodríguez"
+output: word_document
+---
+
+# Carga de los paquetes
+
+```{r}
+#install.packages("dplyr") # Manipulación de bases de datos
+#install.packages("caret") # Machine Learning
+#install.packages("haven") # Bases en .csv y .dta
+#install.packages("ROSE")  # Machine Learning
+#install.packages("imbalance") # Balancear un base de datos
+#install.packages("smotefamily") # Balancear un base de datos
+library(dplyr)
+library(caret)
+library(haven)
+library(ROSE)
+#library(imbalance)
+library(smotefamily)
+```
+
+# Carga de la base de datos
+
+```{r}
+library(haven)
+Base <- read_dta("/home/phel/Projects/Numerico/clases/Machine-Learning/Logit/TOTAL_NACIONAL_ANUAL_2021.dta")
+```
+
+# Problema a resolver
+
+Determinar la probabilidad de las variables que pueden afectar la cotización a pensión. La variable Y 1: Cotizantes 0: No cotizanten
+
+```{r}
+y <- Base$p6920 # Cotizantes
+sexo <- Base$p6020 # Sexo
+edad <- Base$p6040 # Edad
+educa <- Base$p6220 # Nivel educativo
+estrato <- Base$p4030s1a1 # Estrato socioeconómico
+jefehogar <- Base$p6050 # Si es o no jefe de hogar
+
+# Crear una base de datos con las variables seleccionadas y eliminar los NA
+
+# Eliminar los NA: Se van a eliminar TODOS los individuos que tienen por lo menos un dato faltante
+
+Base1 <- data.frame(y, sexo, edad, educa, estrato, jefehogar)
+Base2 <- na.omit(Base1)
+```
+
+# Convertir variables numéricas a factores
+
+```{r}
+basef <-  Base2
+
+basef$edad <- ifelse(basef$edad <= 28, 1,
+              ifelse(basef$edad <= 40, 2,
+              ifelse(basef$edad <= 60, 3, 4)))
+basef$edad <- as.factor(basef$edad)
+
+basef$jefehogar <- ifelse(basef$jefehogar == 1, 1, 0)
+basef$jefehogar <- as.factor(basef$jefehogar)
+
+basef <- filter(basef, estrato != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de estrato
+
+basef$estrato <- ifelse(basef$estrato == 0, 1, 
+                 ifelse(basef$estrato == 1, 1,
+                 ifelse(basef$estrato == 2, 1, 
+                 ifelse(basef$estrato == 3, 2, 
+                 ifelse(basef$estrato == 4, 2,
+                 ifelse(basef$estrato == 5, 3, 3))))))
+basef$estrato <- as.factor(basef$estrato)
+
+basef$sexo <- ifelse(basef$sexo == 2, 0, 1)
+basef$sexo <- as.factor(basef$sexo)
+
+basef <- filter(basef, educa != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de educa (No sabe / No responde)
+basef$educa <- as.factor(basef$educa)
+
+basef <- filter(basef, y != 3) # Elimina los pensionados
+basef$y <- ifelse(basef$y == 2, 1, 0) # 1: No cotizante 0: cotizante
+basef$y <- as.factor(basef$y)
+```
+
+# Modelo Logit
+
+```{r}
+# Primer modelo. TODAS las variables
+modelo.logit <- glm(y ~ sexo + edad + educa + estrato + jefehogar, data = basef, family = "binomial")
+summary(modelo.logit)
+```
+* Sexo1 = -0.17547: Para la variable sexo y para el grupo 1 (sexo1 =  Hombres), disminuye la probabilidad (Porque el valor es negativo), de pasar del grupo 1 de la variable y (No cotizantes = 1) a cotizantes respecto al grupo de comparación (sexo0 = Mujeres) en un 17.547%
+
+* Edad2 = -0.29733: Pasar del grupo de edad 2 (Entre 29 - 40 años) al grupo de edad 1 (Menores a 28 años), disminuye la probabilidad de pasar de No cotizante a Cotizante en 29.733%.
+
+* Edad 4 = 0.56814: Pasar del grupo de edad 4 (Mayor de 60 años) al grupo de edad 1 (Menores a 28 años), aumenta la probabilidad de pasar de No cotizante a Cotizante en 56.814%.
+
+* Estrato 3 = -0.50944: Pasar del grupo estrato 3 (Estratos 5-6) al grupo 1 (Estratos 0, 1 y 2) disminuye la probabilidad de pasar de No cotizante a cotizante en 50.944%.
+
+# Validación del modelo
+
+```{r}
+# Prueba chi-cuadrado para las variables usadas en el modelo
+anova(modelo.logit, test = "Chisq")
+```
+En este caso se presenta la prueba Likelihood ratio la cual cualcula la significancia de la diferencia de los residuos entre el modelo propuesto y el modelo nulo (Y ~ 0, modelo solo con el intercepto). El estadístico de prueba usado sigue una distribución Chi-Cuadrado con grados de libertad equivalentes a la diferencia de los grados de libertad de los dos modelos. (Objetivo: Que TODAS las covariables sean significativas, en otras palabras que el p-valor sea menor al $\alpha$ seleccionado)
+
+# Pronóstico del modelo (Clasificación)
+
+```{r}
+# Creación de bases para Entrenamiento y Prueba
+library(caret)
+
+# Cambiar el porcentaje de la partición
+
+BaseEntrenamiento <- createDataPartition(
+  y = basef$y, # Selecionamos la variable Y o variable respuesta
+  p = 0.9, # Cuál será la proporción 70-30, 80-20, 90-10
+  list = FALSE ) # No se toca
+Entrenamiento <- basef[BaseEntrenamiento,] # Creamos una base de datos para el entrenamiento del modelo con los valores de la partición que incluye la Y y las X´s
+Test <- basef[-BaseEntrenamiento,] # Creamos una base de datos para la prueba del modelo con los valores de la partición que incluye la Y y las X´s
+dim(Entrenamiento); dim(Test) # Muestra cuantos individuos quedaron en la base del entremiento y cuantas variables, igual para la prueba.
+```
+# Generar un modelo logit con la Base de Entrenamiento
+
+```{r}
+modelo.logit <- glm(y ~ ., data = Entrenamiento, family = "binomial")
+summary(modelo.logit)
+```
+
+Nota: Cuando se han seleccionado variables en el modelo original (En otras palabras, no se usa y ~ ., sino Y ~ X1+X2 ....), se deben traer las mismas variables para el logit del entrenamiento.
+
+Posterior a este paso, se pronósticará con los datos de prueba.
+
+```{r}
+Entrenamientof <- predict(modelo.logit, newdata = Test, type = "response")
+head(Entrenamientof)
+# Todos los valores deben ser 0 <= x <= 1
+```
+```{r}
+# Cambiar el  entreamientof
+tablaf <- factor(ifelse(Entrenamientof > 0.7, 1, 0))
+levels(tablaf) <- c("Si", "No")
+levels(Test$y) <- c("Si","No")
+table(Prediccion  =  tablaf, Realidad = Test$y)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
