@@ -1,6 +1,6 @@
   ---
-title: "Modelo Logit"
-author: "Yesid Rodríguez"
+title: "Predicción de Sobrevivientes en el desastre del Titanic"
+author: "Felipe Rodriguez, Tomas Silva, Juan Pabon"
 output: word_document
 ---
 
@@ -25,26 +25,27 @@ library(smotefamily)
 
 ```{r}
 library(haven)
-Base <- read_dta("/home/phel/Projects/Numerico/clases/Machine-Learning/Logit/TOTAL_NACIONAL_ANUAL_2021.dta")
+Base <- read.csv("Titanic-Dataset.csv")
 ```
 
 # Problema a resolver
 
-Determinar la probabilidad de las variables que pueden afectar la cotización a pensión. La variable Y 1: Cotizantes 0: No cotizanten
+Determinar la probabilidad de las variables que pueden afectar la supervivencia. La variable Y 1: Sobrevivió 0: No Sobrevivió
 
 ```{r}
-y <- Base$p6920 # Cotizantes
-sexo <- Base$p6020 # Sexo
-edad <- Base$p6040 # Edad
-educa <- Base$p6220 # Nivel educativo
-estrato <- Base$p4030s1a1 # Estrato socioeconómico
-jefehogar <- Base$p6050 # Si es o no jefe de hogar
+y <- Base$Survived # Sobrevivientes
+clase <- Base$Pclass # Clase del tiquete
+sexo <- Base$Sex # Sexo
+edad <- Base$Age# Edad
+hermEspo<- Base$SibSp# Número de hermanos y esposos abordo del Titanic
+padHij <- Base$Parch # Número de padres e hijos abordo del Titanic 
+precio <- Base$Fare # Precio pagado por el boleto
 
 # Crear una base de datos con las variables seleccionadas y eliminar los NA
 
 # Eliminar los NA: Se van a eliminar TODOS los individuos que tienen por lo menos un dato faltante
 
-Base1 <- data.frame(y, sexo, edad, educa, estrato, jefehogar)
+Base1 <- data.frame(y, clase, sexo, edad, hermEspo, padHij, precio)
 Base2 <- na.omit(Base1)
 ```
 
@@ -53,32 +54,63 @@ Base2 <- na.omit(Base1)
 ```{r}
 basef <-  Base2
 
-basef$edad <- ifelse(basef$edad <= 28, 1,
-              ifelse(basef$edad <= 40, 2,
-              ifelse(basef$edad <= 60, 3, 4)))
-basef$edad <- as.factor(basef$edad)
+# Falta CLASE
 
-basef$jefehogar <- ifelse(basef$jefehogar == 1, 1, 0)
-basef$jefehogar <- as.factor(basef$jefehogar)
+basef$clase <- as.factor(basef$edad)
 
-basef <- filter(basef, estrato != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de estrato
+# Se clasifican el sexo por mujeres en 0 y hombres en 1
 
-basef$estrato <- ifelse(basef$estrato == 0, 1, 
-                 ifelse(basef$estrato == 1, 1,
-                 ifelse(basef$estrato == 2, 1, 
-                 ifelse(basef$estrato == 3, 2, 
-                 ifelse(basef$estrato == 4, 2,
-                 ifelse(basef$estrato == 5, 3, 3))))))
-basef$estrato <- as.factor(basef$estrato)
-
-basef$sexo <- ifelse(basef$sexo == 2, 0, 1)
+basef$sexo <- ifelse(basef$sexo == "female", 0, 1)
 basef$sexo <- as.factor(basef$sexo)
 
-basef <- filter(basef, educa != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de educa (No sabe / No responde)
-basef$educa <- as.factor(basef$educa)
+# Se divide en 5 grupos por EDAD
 
-basef <- filter(basef, y != 3) # Elimina los pensionados
-basef$y <- ifelse(basef$y == 2, 1, 0) # 1: No cotizante 0: cotizante
+# Grupo 1 (Niños): Menores de 12 años
+# Grupo 2 (Adolescentes): Entre 12 y 18 años
+# Grupo 3 (Adultos): Entre 18 y 40
+# Grupo 4 (Mediana edad): Entre 40 y 65
+# Grupo 5 (Adultos Mayores): Mayores a 65
+
+basef$edad <- ifelse(basef$edad <= 12, 1,
+              ifelse(basef$edad <= 18, 2,
+              ifelse(basef$edad <= 40, 3,
+              ifelse(basef$edad <= 65, 4, 5))))
+basef$edad <- as.factor(basef$edad)
+
+
+# Falta numero de hermanos y esposos/esposas
+
+basef$hermEspo <- as.factor(basef$hermEspo)
+
+# Falta el numero de padres e hijos
+
+basef$padHij <- as.factor(basef$padHij)
+
+# Falta el precio
+
+basef$precio <- as.factor(basef$precio)
+
+#basef$jefehogar <- ifelse(basef$jefehogar == 1, 1, 0)
+#basef$jefehogar <- as.factor(basef$jefehogar)
+
+#basef <- filter(basef, estrato != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de estrato
+
+#basef$estrato <- ifelse(basef$estrato == 0, 1, 
+#                 ifelse(basef$estrato == 1, 1,
+#                 ifelse(basef$estrato == 2, 1, 
+#                 ifelse(basef$estrato == 3, 2, 
+#                 ifelse(basef$estrato == 4, 2,
+#                 ifelse(basef$estrato == 5, 3, 3))))))
+#basef$estrato <- as.factor(basef$estrato)
+
+
+#basef <- filter(basef, educa != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de educa (No sabe / No responde)
+#basef$educa <- as.factor(basef$educa)
+
+# Falta los sobrevivientes
+
+#basef <- filter(basef, y != 3) # Elimina los pensionados
+#basef$y <- ifelse(basef$y == 2, 1, 0) # 1: No cotizante 0: cotizante
 basef$y <- as.factor(basef$y)
 ```
 
@@ -86,7 +118,7 @@ basef$y <- as.factor(basef$y)
 
 ```{r}
 # Primer modelo. TODAS las variables
-modelo.logit <- glm(y ~ sexo + edad + educa + estrato + jefehogar, data = basef, family = "binomial")
+modelo.logit <- glm(y ~ clase + sexo + edad + hermEspo + padHij + precio , data = basef, family = "binomial")
 summary(modelo.logit)
 ```
 * Sexo1 = -0.17547: Para la variable sexo y para el grupo 1 (sexo1 =  Hombres), disminuye la probabilidad (Porque el valor es negativo), de pasar del grupo 1 de la variable y (No cotizantes = 1) a cotizantes respecto al grupo de comparación (sexo0 = Mujeres) en un 17.547%
