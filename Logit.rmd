@@ -56,8 +56,7 @@ basef <-  Base2
 
 # Falta CLASE
 basef$clase <- ifelse(basef$clase == 1, 1,
-               ifelse(basef$clase == 2, 2,
-               ifelse(basef$clase == 3, 3)))
+               ifelse(basef$clase == 2, 2, 3))
 basef$clase <- as.factor(basef$clase)
 
 # Se clasifican el sexo por mujeres en 0 y hombres en 1
@@ -89,8 +88,7 @@ basef$edad <- as.factor(basef$edad)
 # grupo 4: familia grande (5-8)
 basef$hermEspo <- ifelse(basef$hermEspo == 0, 1,
                   ifelse(basef$hermEspo <= 2, 2,
-                  ifelse(basef$hermEspo <= 4, 3,
-                  ifelse(basef$hermEspo <= 8, 4))))
+                  ifelse(basef$hermEspo <= 4, 3, 4)))
 basef$hermEspo <- as.factor(basef$hermEspo)
 
 # Falta el numero de padres e hijos
@@ -102,12 +100,14 @@ basef$hermEspo <- as.factor(basef$hermEspo)
 # grupo 4: grupo grande de dependencia (5-6)
 basef$padHij <- ifelse(basef$padHij == 0, 1,
                 ifelse(basef$padHij <= 2, 2,
-                ifelse(basef$padHij <= 4, 3,
-                ifelse(basef$padHij <= 6, 4))))
+                ifelse(basef$padHij <= 4, 3, 4)))
 basef$padHij <- as.factor(basef$padHij)
 
 # Falta el precio
-
+basef$precio <- ifelse(basef$precio == 0, 1,
+                ifelse(basef$precio <= 8, 2,
+                ifelse(basef$precio <= 15,3,
+                ifelse(basef$precio <= 100, 4, 5))))
 basef$precio <- as.factor(basef$precio)
 
 #basef$jefehogar <- ifelse(basef$jefehogar == 1, 1, 0)
@@ -131,6 +131,7 @@ basef$precio <- as.factor(basef$precio)
 
 #basef <- filter(basef, y != 3) # Elimina los pensionados
 #basef$y <- ifelse(basef$y == 2, 1, 0) # 1: No cotizante 0: cotizante
+basef$y <- ifelse(basef$y == 1, 1, 0)
 basef$y <- as.factor(basef$y)
 ```
 
