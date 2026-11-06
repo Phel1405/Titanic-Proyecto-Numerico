@@ -46,7 +46,7 @@ precio <- Base$Fare # Precio pagado por el boleto
 # Eliminar los NA: Se van a eliminar TODOS los individuos que tienen por lo menos un dato faltante
 
 Base1 <- data.frame(y, clase, sexo, edad, hermEspo, padHij, precio)
-Base2 <- na.omit(Base1)
+Base2 <- na.omit(Base1) #deberia eliminar 177 de 891 registros (el 20% fuel eliminado)
 ```
 
 # Convertir variables numéricas a factores
@@ -55,8 +55,10 @@ Base2 <- na.omit(Base1)
 basef <-  Base2
 
 # Falta CLASE
-
-basef$clase <- as.factor(basef$edad)
+basef$clase <- ifelse(basef$clase == 1, 1,
+               ifelse(basef$clase == 2, 2,
+               ifelse(basef$clase == 3, 3)))
+basef$clase <- as.factor(basef$clase)
 
 # Se clasifican el sexo por mujeres en 0 y hombres en 1
 
@@ -79,11 +81,29 @@ basef$edad <- as.factor(basef$edad)
 
 
 # Falta numero de hermanos y esposos/esposas
-
+# rango: [0,8]
+# es un grupo horizontal dado que son otros de similares edades y condiciones
+# grupo 1: solo (0)
+# grupo 2: familia pequenia (1-2)
+# grupo 3: familia mediana (3-4)
+# grupo 4: familia grande (5-8)
+basef$hermEspo <- ifelse(basef$hermEspo == 0, 1,
+                  ifelse(basef$hermEspo <= 2, 2,
+                  ifelse(basef$hermEspo <= 4, 3,
+                  ifelse(basef$hermEspo <= 8, 4))))
 basef$hermEspo <- as.factor(basef$hermEspo)
 
 # Falta el numero de padres e hijos
-
+# es un grupo vertical donde los los valores incrementa la dependencia hacia la persona o hacia otros.
+# rango: [0,6]
+# grupo 1: Solo (0)
+# grupo 2: grupo pequnio de dependencia (1-2)
+# grupo 3: grupo mediano de dependencia (3-4)
+# grupo 4: grupo grande de dependencia (5-6)
+basef$padHij <- ifelse(basef$padHij == 0, 1,
+                ifelse(basef$padHij <= 2, 2,
+                ifelse(basef$padHij <= 4, 3,
+                ifelse(basef$padHij <= 6, 4))))
 basef$padHij <- as.factor(basef$padHij)
 
 # Falta el precio
