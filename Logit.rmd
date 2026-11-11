@@ -87,7 +87,7 @@ basef$edad <- as.factor(basef$edad)
 # grupo 3: familia mediana (3-4)
 # grupo 4: familia grande (5-8)
 basef$hermEspo <- ifelse(basef$hermEspo == 0, 1,
-                  ifelse(basef$hermEspo <= 2, 2,
+                  # ifelse(basef$hermEspo <= 2, 2,
                   ifelse(basef$hermEspo <= 4, 3, 4)))
 basef$hermEspo <- as.factor(basef$hermEspo)
 
