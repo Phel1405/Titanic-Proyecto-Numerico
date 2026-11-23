@@ -13,12 +13,14 @@ output: word_document
 #install.packages("ROSE")  # Machine Learning
 #install.packages("imbalance") # Balancear un base de datos
 #install.packages("smotefamily") # Balancear un base de datos
+install.packages("pROC")
 library(dplyr)
 library(caret)
 library(haven)
 library(ROSE)
 #library(imbalance)
 library(smotefamily)
+library(pROC)
 ```
 
 # Carga de la base de datos
@@ -195,11 +197,27 @@ head(Entrenamientof)
 tablaf <- factor(ifelse(Entrenamientof > 0.7, 1, 0))
 levels(tablaf) <- c("Si", "No")
 levels(Test$y) <- c("Si","No")
-table(Prediccion  =  tablaf, Realidad = Test$y)
+confusionMatrix = table(Prediccion  =  tablaf, Realidad = Test$y)
+```
+
+```{r}
+precision = diag(confusionMatrix) / rowSums(confusionMatrix)
+recall = diag(confusionMatrix) / colSums(confusionMatrix)
+accuracy = sum(diag(confusionMatrix)) / sum(confusionMatrix)
+F1 = 2 * (precision * recall) / (precision + recall)
+
+print(accuracy)
+print(precision)
+print(recall)
+print(F1)
 ```
 
 
+```{r}
+curva_roc <- roc(Test$y, Entrenamientof)
 
+plot(curva_roc, col = "blue", main = "Curva ROC", print.auc = TRUE)
+```
 
 
 
