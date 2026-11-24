@@ -1,8 +1,17 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
   ---
 title: "Predicción de Sobrevivientes en el desastre del Titanic"
 author: "Felipe Rodriguez, Tomas Silva, Juan Pabon"
 output: word_document
 ---
+
+
+# Objetivo principal
+El objetivo del proyecto es el lograr clasificar de forma efectiva si un pasajero sobrevivió o no a los acontecimientos del Titanic analizando las probabilidades según características individuales. Esto con tal de definir cuales son las características más relevantes en un individuo que se asocian con una mayor o menor probabilidad de supervivencia.
 
 # Carga de los paquetes
 
@@ -11,19 +20,18 @@ output: word_document
 #install.packages("caret") # Machine Learning
 #install.packages("haven") # Bases en .csv y .dta
 #install.packages("ROSE")  # Machine Learning
-#install.packages("imbalance") # Balancear un base de datos
 #install.packages("smotefamily") # Balancear un base de datos
-install.packages("pROC")
+#install.packages("pROC") 
 library(dplyr)
 library(caret)
 library(haven)
 library(ROSE)
-#library(imbalance)
 library(smotefamily)
 library(pROC)
 ```
 
 # Carga de la base de datos
+Se carga el archivo .csv del dataset correspondiente, con un total de 891 registros.
 
 ```{r}
 library(haven)
@@ -32,31 +40,33 @@ Base <- read.csv("Titanic-Dataset.csv")
 
 # Problema a resolver
 
-Determinar la probabilidad de las variables que pueden afectar la supervivencia. La variable Y 1: Sobrevivió 0: No Sobrevivió
+Determinar la probabilidad de las variables que pueden afectar la supervivencia. La variable Y 1: Sobrevivió 0: No Sobrevivió.
 
 ```{r}
-y <- Base$Survived # Sobrevivientes
-clase <- Base$Pclass # Clase del tiquete
-sexo <- Base$Sex # Sexo
-edad <- Base$Age# Edad
-hermEspo<- Base$SibSp# Número de hermanos y esposos abordo del Titanic
-padHij <- Base$Parch # Número de padres e hijos abordo del Titanic 
-precio <- Base$Fare # Precio pagado por el boleto
+# Se muestran a continuación las variables del sistema:
 
-# Crear una base de datos con las variables seleccionadas y eliminar los NA
+y <- Base$Survived      # Sobrevivientes
+clase <- Base$Pclass    # Clase del tiquete
+sexo <- Base$Sex        # Sexo
+edad <- Base$Age        # Edad
+hermEspo<- Base$SibSp   # Número de hermanos y esposos abordo del Titanic
+padHij <- Base$Parch    # Número de padres e hijos abordo del Titanic 
+precio <- Base$Fare     # Precio pagado por el boleto
 
-# Eliminar los NA: Se van a eliminar TODOS los individuos que tienen por lo menos un dato faltante
+# Siguiente, crear una base de datos con las variables seleccionadas y eliminar los NA
+## Eliminar los NA: Se van a eliminar TODOS los individuos que tienen por lo menos un dato faltante
 
 Base1 <- data.frame(y, clase, sexo, edad, hermEspo, padHij, precio)
-Base2 <- na.omit(Base1) #deberia eliminar 177 de 891 registros (el 20% fuel eliminado)
+Base2 <- na.omit(Base1) #deberia eliminar 177 de 891 registros (el 20% fue eliminado al contener datos NA)
 ```
 
-# Convertir variables numéricas a factores
-
+# Converción de variables numéricas a factores
+Este proceso implica la estructuración de los datos para su uso tras limpiarze de datos NA.
 ```{r}
 basef <-  Base2
 
-# Falta CLASE
+# Se clasifican la clase por primera (1), segunda (2) y tercera (3) clase para los pasajeros
+
 basef$clase <- ifelse(basef$clase == 1, 1,
                ifelse(basef$clase == 2, 2, 3))
 basef$clase <- as.factor(basef$clase)
@@ -81,9 +91,9 @@ basef$edad <- ifelse(basef$edad <= 12, 1,
 basef$edad <- as.factor(basef$edad)
 
 
-# Falta numero de hermanos y esposos/esposas
+# Se divide en 4 grupos por numero de hermanos y esposos/esposas
 # rango: [0,8]
-# es un grupo horizontal dado que son otros de similares edades y condiciones
+# este es un grupo horizontal dado que son otros de similares edades y condiciones
 # grupo 1: solo (0)
 # grupo 2: familia pequenia (1-2)
 # grupo 3: familia mediana (3-4)
@@ -93,11 +103,11 @@ basef$hermEspo <- ifelse(basef$hermEspo == 0, 1,
                   ifelse(basef$hermEspo <= 4, 3, 4)))
 basef$hermEspo <- as.factor(basef$hermEspo)
 
-# Falta el numero de padres e hijos
-# es un grupo vertical donde los los valores incrementa la dependencia hacia la persona o hacia otros.
+# Se divide en 4 grupos segun el numero de padres e hijos
+# este es un grupo vertical donde los los valores incrementa la dependencia hacia la persona o hacia otros.
 # rango: [0,6]
 # grupo 1: Solo (0)
-# grupo 2: grupo pequnio de dependencia (1-2)
+# grupo 2: grupo pequenio de dependencia (1-2)
 # grupo 3: grupo mediano de dependencia (3-4)
 # grupo 4: grupo grande de dependencia (5-6)
 basef$padHij <- ifelse(basef$padHij == 0, 1,
@@ -105,63 +115,59 @@ basef$padHij <- ifelse(basef$padHij == 0, 1,
                 ifelse(basef$padHij <= 4, 3, 4)))
 basef$padHij <- as.factor(basef$padHij)
 
-# Falta el precio
+# Se divide en 5 grupos por numero de precio
+# este grupo se divide segun rangos, donde hasta cierto valor se clasifica el precio del tiquete
+# grupo 1: gratuito (0)
+# grupo 2: precio bajo del tiquete (1-8)
+# grupo 3: precio medio del tiquete (9-15)
+# grupo 4: precio alto del tiquete (16-100)
+# grupo 5: precios mayores del tiquete (mayores a 100)
 basef$precio <- ifelse(basef$precio == 0, 1,
                 ifelse(basef$precio <= 8, 2,
                 ifelse(basef$precio <= 15,3,
                 ifelse(basef$precio <= 100, 4, 5))))
 basef$precio <- as.factor(basef$precio)
 
-#basef$jefehogar <- ifelse(basef$jefehogar == 1, 1, 0)
-#basef$jefehogar <- as.factor(basef$jefehogar)
-
-#basef <- filter(basef, estrato != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de estrato
-
-#basef$estrato <- ifelse(basef$estrato == 0, 1, 
-#                 ifelse(basef$estrato == 1, 1,
-#                 ifelse(basef$estrato == 2, 1, 
-#                 ifelse(basef$estrato == 3, 2, 
-#                 ifelse(basef$estrato == 4, 2,
-#                 ifelse(basef$estrato == 5, 3, 3))))))
-#basef$estrato <- as.factor(basef$estrato)
-
-
-#basef <- filter(basef, educa != 9) # Filtrary eliminar todos los individuos que respondieron 9 en la pregunta de educa (No sabe / No responde)
-#basef$educa <- as.factor(basef$educa)
-
-# Falta los sobrevivientes
-
-#basef <- filter(basef, y != 3) # Elimina los pensionados
-#basef$y <- ifelse(basef$y == 2, 1, 0) # 1: No cotizante 0: cotizante
+# Valor respectivo a sobrevivientes
+# Se clasifican sobrevivientes como "sobrevivio" en 1 y "no sobrevivio" en 0
 basef$y <- ifelse(basef$y == 1, 1, 0)
 basef$y <- as.factor(basef$y)
 ```
 
-# Modelo Logit
+# Aplicación del Modelo Logit
+En esta sección, se ajusta el primer modelo de Logit, utilizando todas las variables filtradas en la sección anterior, por medio de una distribución binomial y enlace logit.
 
+El modelo de esta sección evalua el comportamiento de todos los datos, definir su efecto en la probabilidad de supervivencia y determinar cuales datos son significativos para uso posterior.
 ```{r}
 # Primer modelo. TODAS las variables
 modelo.logit <- glm(y ~ clase + sexo + edad + hermEspo + padHij + precio , data = basef, family = "binomial")
 summary(modelo.logit)
 ```
-* Sexo1 = -0.17547: Para la variable sexo y para el grupo 1 (sexo1 =  Hombres), disminuye la probabilidad (Porque el valor es negativo), de pasar del grupo 1 de la variable y (No cotizantes = 1) a cotizantes respecto al grupo de comparación (sexo0 = Mujeres) en un 17.547%
+## Consideraciones
+De todos los datos obtenidos y analisados tras el primer modelo, se obtienen los siguientes resultados.
+Los valores que se encuentran en condidiciones aptas para uso posterior segun sus resultados son: Clase, Sexo y Edad
+esto ya que cuentan con un p-valor menor a 0.01, indicando un efecto significativo en el resultado.
 
-* Edad2 = -0.29733: Pasar del grupo de edad 2 (Entre 29 - 40 años) al grupo de edad 1 (Menores a 28 años), disminuye la probabilidad de pasar de No cotizante a Cotizante en 29.733%.
+- **Sexo** resulta la variable mas determinante, implicando que los pasajeros hombres tuvieron una menor probabilidad de supervivencia que las mujeres por un margen significativo
 
-* Edad 4 = 0.56814: Pasar del grupo de edad 4 (Mayor de 60 años) al grupo de edad 1 (Menores a 28 años), aumenta la probabilidad de pasar de No cotizante a Cotizante en 56.814%.
+- **Clase** parece indicar que entre mas bajo fuera el nivel de la clase , la probabilidad de disminuir disminuye (los pasajeros de clase baja (tercera clase) tenian menos probabilidades que aquellos en clases mas altas (primera o segunda clase)).
 
-* Estrato 3 = -0.50944: Pasar del grupo estrato 3 (Estratos 5-6) al grupo 1 (Estratos 0, 1 y 2) disminuye la probabilidad de pasar de No cotizante a cotizante en 50.944%.
+- **Edad** muestra como los grupos de adolecentes y adultos resultan menos propensos a sobrevivir que los niños.
 
 # Validación del modelo
-
+Se aplica una prueba de razón de verosimilitudes para observar si las variables recuen de forma significativa la desviación tomando un nivel de significancia de 0.05.
 ```{r}
 # Prueba chi-cuadrado para las variables usadas en el modelo
 anova(modelo.logit, test = "Chisq")
 ```
-En este caso se presenta la prueba Likelihood ratio la cual cualcula la significancia de la diferencia de los residuos entre el modelo propuesto y el modelo nulo (Y ~ 0, modelo solo con el intercepto). El estadístico de prueba usado sigue una distribución Chi-Cuadrado con grados de libertad equivalentes a la diferencia de los grados de libertad de los dos modelos. (Objetivo: Que TODAS las covariables sean significativas, en otras palabras que el p-valor sea menor al $\alpha$ seleccionado)
+En este caso se presenta la prueba Likelihood ratio la cual cualcula la significancia de la diferencia de los residuos entre el modelo propuesto y el modelo nulo (Y ~ 1). El estadístico de prueba usado sigue una distribución Chi-Cuadrado con grados de libertad equivalentes a la diferencia de los grados de libertad de los dos modelos. Esto con el objetivo de que todas las covariables sean significativas, en otras palabras que el p-valor sea menor al $\alpha$ seleccionado (0.05)).
+
+Los resultados confirman que clase, sexo y edad son las variables predominantes y mas significativas que aportan mayormente al modelo, el resto de variables es descartado para su continuación.
 
 # Pronóstico del modelo (Clasificación)
-
+Se divide la base de datos en dos conjuntos:
+- Un conjunto de entrenamiento con el 90% de la proporción para ajustar el modelo.
+- Un conjunto de prueba para evaluar su capacidad para generalizar.
 ```{r}
 # Creación de bases para Entrenamiento y Prueba
 library(caret)
@@ -169,29 +175,30 @@ library(caret)
 # Cambiar el porcentaje de la partición
 
 BaseEntrenamiento <- createDataPartition(
-  y = basef$y, # Selecionamos la variable Y o variable respuesta
-  p = 0.9, # Cuál será la proporción 70-30, 80-20, 90-10
+  y = basef$y, # Se selecciona la variable Y o variable respuesta
+  p = 0.9, # Indica cuál será la proporción 70-30, 80-20, 90-10
   list = FALSE ) # No se toca
-Entrenamiento <- basef[BaseEntrenamiento,] # Creamos una base de datos para el entrenamiento del modelo con los valores de la partición que incluye la Y y las X´s
-Test <- basef[-BaseEntrenamiento,] # Creamos una base de datos para la prueba del modelo con los valores de la partición que incluye la Y y las X´s
+Entrenamiento <- basef[BaseEntrenamiento,] # Se crea una base de datos para el entrenamiento del modelo con los valores de la partición que incluye la Y y las X´s significativas
+Test <- basef[-BaseEntrenamiento,] # Se crea una base de datos para la prueba del modelo con los valores de la partición que incluye la Y y las X´s
 dim(Entrenamiento); dim(Test) # Muestra cuantos individuos quedaron en la base del entremiento y cuantas variables, igual para la prueba.
 ```
 # Generar un modelo logit con la Base de Entrenamiento
-
+Se ajusta el modelo definitivo de Logit usando la base de entrenamiento que ya solo cuenta con datos significativos validados
 ```{r}
 modelo.logit <- glm(y ~ clase + sexo + edad, data = Entrenamiento, family = "binomial")
 summary(modelo.logit)
 ```
+El modelo logra reducir su desviación, con todas las variables manteniendo su mismo efecto sobre la probabilidad de supervivencia frente a su categoria base.
 
-Nota: Cuando se han seleccionado variables en el modelo original (En otras palabras, no se usa y ~ ., sino Y ~ X1+X2 ....), se deben traer las mismas variables para el logit del entrenamiento.
-
-Posterior a este paso, se pronósticará con los datos de prueba.
+Posterior a este paso, se pronóstica con los datos de prueba.
 
 ```{r}
 Entrenamientof <- predict(modelo.logit, newdata = Test, type = "response")
 head(Entrenamientof)
 # Todos los valores deben ser 0 <= x <= 1
 ```
+Se define un umbral de decisión de 0.7 para la conversion de probabilidades en predicciones binarias y se construye la matriz de confusión
+
 ```{r}
 # Cambiar el  entreamientof
 tablaf <- factor(ifelse(Entrenamientof > 0.7, 1, 0))
@@ -200,24 +207,33 @@ levels(Test$y) <- c("Si","No")
 confusionMatrix = table(Prediccion  =  tablaf, Realidad = Test$y)
 ```
 
+A partir de los aciertos y errores de la matriz de confusión, se obtienen valores de desempeño de del modelo como la exactitud (accuracy), precisión, recall (o sensibilidad) y valor F1
+
 ```{r}
 precision = diag(confusionMatrix) / rowSums(confusionMatrix)
 recall = diag(confusionMatrix) / colSums(confusionMatrix)
 accuracy = sum(diag(confusionMatrix)) / sum(confusionMatrix)
 F1 = 2 * (precision * recall) / (precision + recall)
 
+#Se imprime cada valor
+print("Exactitud")
 print(accuracy)
+print("Precisión")
 print(precision)
+print("Sensibilidad")
 print(recall)
+print("Valores F1")
 print(F1)
 ```
-
+Finalmente, se construye la curva ROC y se calcula su area bajo la curva para evaluar su capacidad global de discriminación del modelo
 
 ```{r}
 curva_roc <- roc(Test$y, Entrenamientof)
 
 plot(curva_roc, col = "blue", main = "Curva ROC", print.auc = TRUE)
 ```
+
+Cualquier valor de area bajo la curva mayor a 0.7 indica una buena capacidad del modelo para clasificar y distinguir entre ambas clases (con un valor de 0.783, su valor se muestra suficiente).
 
 
 
